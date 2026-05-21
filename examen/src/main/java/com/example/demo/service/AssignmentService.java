@@ -21,13 +21,13 @@ public class AssignmentService {
             throw new IllegalArgumentException("Consultant introuvable.");
         }
 
-        // RÈGLE MÉTIER 1 : Le TJM négocié >= 80% du TJM par défaut
+        
         long minAllowedRate = (long) (consultant.getDefaultTJM() * 0.8);
         if (input.getNegotiatedDailyRate() < minAllowedRate) {
             throw new IllegalStateException("Violation règle métier : Le TJM négocié ne peut pas être inférieur à 80% du tarif du grade.");
         }
 
-        // RÈGLE MÉTIER 2 : Ne pas dépasser 100% de charge sur la période (simulation simplifiée par cumul de jours prévus)
+        
         double currentDays = repository.getTotalPlannedDaysForPeriod(
             consultantId, 
             Date.valueOf(input.getStartDate()), 
@@ -37,11 +37,11 @@ public class AssignmentService {
             throw new IllegalStateException("Violation règle métier : La charge du consultant dépasse 100% sur la période.");
         }
 
-        // Déterminer si c'est une mise à jour (200) ou une création (201)
+        
         boolean alreadyExists = repository.exists(missionId, consultantId);
         
         repository.saveOrUpdate(missionId, consultantId, input, alreadyExists);
         
-        return alreadyExists; // Retourne true pour UPDATE, false pour INSERT
+        return alreadyExists; 
     }
 }

@@ -10,17 +10,17 @@ import java.util.List;
 @Repository
 public class TimesheetRepository {
 
-    // 1. Déclaration de l'instance de configuration
+
     private final DatabaseConfig databaseConfig;
 
-    // 2. Injection par constructeur
+    
     public TimesheetRepository(DatabaseConfig databaseConfig) {
         this.databaseConfig = databaseConfig;
     }
 
     public String getTimesheetStatus(String consultantId, String week) {
         String sql = "SELECT status FROM timesheet WHERE consultant_id = ? AND week = ?";
-        // Correction : Utilisation de l'instance injectée
+        
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, consultantId);
@@ -33,17 +33,17 @@ public class TimesheetRepository {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return null; // N'existe pas encore (DRAFT virtuel)
+        return null; 
     }
 
     public void saveTimesheet(String consultantId, String week, String status, List<TimesheetEntry> entries) {
         Connection conn = null;
         try {
-            // Correction : Utilisation de l'instance injectée
+            
             conn = databaseConfig.getConnection();
-            conn.setAutoCommit(false); // Mode transactionnel obligatoire
+            conn.setAutoCommit(false); 
 
-            // 1. Insérer ou mettre à jour le statut global du Timesheet
+        
             String upsertTimesheet = "INSERT INTO timesheet (consultant_id, week, status, submitted_at) VALUES (?, ?, ?, NOW()) " +
                                      "ON CONFLICT (consultant_id, week) DO UPDATE SET status = ?, submitted_at = NOW()";
             try (PreparedStatement stmt = conn.prepareStatement(upsertTimesheet)) {
@@ -54,7 +54,7 @@ public class TimesheetRepository {
                 stmt.executeUpdate();
             }
 
-            // 2. Nettoyer les anciennes entrées de cette semaine avant de réinsérer
+            
             String deleteEntries = "DELETE FROM timesheet_entry WHERE consultant_id = ? AND week = ?";
             try (PreparedStatement stmt = conn.prepareStatement(deleteEntries)) {
                 stmt.setString(1, consultantId);
@@ -91,7 +91,7 @@ public class TimesheetRepository {
 
     public void updateStatus(String consultantId, String week, String status, String comment) {
         String sql = "UPDATE timesheet SET status = ?, comment = ?, validated_at = NOW() WHERE consultant_id = ? AND week = ?";
-        // Correction : Utilisation de l'instance injectée
+        
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, status);

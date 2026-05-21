@@ -12,17 +12,17 @@ import java.sql.*;
 @Repository
 public class AssignmentRepository {
 
-    // 1. Déclaration de l'instance de configuration
+    
     private final DatabaseConfig databaseConfig;
 
-    // 2. Injection de la dépendance par le constructeur (Zéro static)
+    
     public AssignmentRepository(DatabaseConfig databaseConfig) {
         this.databaseConfig = databaseConfig;
     }
 
     public Consultant findConsultantById(String consultantId) {
         String sql = "SELECT id, name, grade FROM consultant WHERE id = ?";
-        // Correction : Utilisation de l'instance injectée
+
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, consultantId);
@@ -43,7 +43,7 @@ public class AssignmentRepository {
 
     public boolean exists(String missionId, String consultantId) {
         String sql = "SELECT 1 FROM assignment WHERE mission_id = ? AND consultant_id = ?";
-        // Correction : Utilisation de l'instance injectée
+        
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, missionId);
@@ -58,10 +58,10 @@ public class AssignmentRepository {
     }
 
     public double getTotalPlannedDaysForPeriod(String consultantId, Date start, Date end) {
-        // Permet de sommer la charge planifiée sur des missions actives pour la règle des 100%
+        
         String sql = "SELECT SUM(planned_days) FROM assignment WHERE consultant_id = ? AND status = 'ACTIVE' " +
                      "AND NOT (end_date < ? OR start_date > ?)";
-        // Correction : Utilisation de l'instance injectée
+        
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, consultantId);
@@ -86,7 +86,7 @@ public class AssignmentRepository {
             sql = "INSERT INTO assignment (planned_days, negotiated_rate, start_date, end_date, status, mission_id, consultant_id, created_at) VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, NOW())";
         }
 
-        // Correction : Utilisation de l'instance injectée
+        
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, input.getPlannedDays());

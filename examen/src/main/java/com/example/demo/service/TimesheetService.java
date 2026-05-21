@@ -20,12 +20,12 @@ public class TimesheetService {
     public void submitTimesheet(String consultantId, String week, TimesheetInput input) {
         String currentStatus = repository.getTimesheetStatus(consultantId, week);
         
-        // RÈGLE MÉTIER : Non modifiable si déjà validée
+        
         if ("VALIDATED".equals(currentStatus)) {
             throw new IllegalStateException("Le timesheet est déjà validé et ne peut plus être modifié.");
         }
 
-        // RÈGLE MÉTIER : La somme des fractions de journée par jour ne doit pas dépasser 1.0
+        
         Map<LocalDate, Double> dailyTotals = new HashMap<>();
         for (TimesheetEntry entry : input.getEntries()) {
             dailyTotals.put(entry.getDate(), dailyTotals.getOrDefault(entry.getDate(), 0.0) + entry.getDayFraction());
@@ -34,12 +34,12 @@ public class TimesheetService {
             }
         }
 
-        // Sauvegarde avec l'état SUBMITTED
+        
         repository.saveTimesheet(consultantId, week, "SUBMITTED", input.getEntries());
     }
 
     public void validateTimesheet(String consultantId, String week, String outcome, String comment) {
-        // Enregistre la validation ou le rejet par le responsable
+        
         repository.updateStatus(consultantId, week, outcome, comment);
     }
 }

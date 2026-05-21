@@ -9,23 +9,23 @@ import java.util.UUID;
 @Repository
 public class InvoiceRepository {
 
-    // 1. Déclaration de l'instance de configuration
+    
     private final DatabaseConfig databaseConfig;
 
-    // 2. Injection par le constructeur (Zéro static)
+
     public InvoiceRepository(DatabaseConfig databaseConfig) {
         this.databaseConfig = databaseConfig;
     }
 
     public long calculateInvoiceAmount(String missionId, String period) {
-        // Somme des fractions de journées validées multipliées par le TJM négocié dans l'affectation
+    
         String sql = "SELECT SUM(te.day_fraction * a.negotiated_rate) FROM timesheet_entry te " +
                      "JOIN timesheet t ON te.consultant_id = t.consultant_id AND te.week = t.week " +
                      "JOIN assignment a ON te.mission_id = a.mission_id AND te.consultant_id = a.consultant_id " +
                      "WHERE te.mission_id = ? AND TO_CHAR(te.entry_date, 'YYYY-MM') = ? AND t.status = 'VALIDATED' " +
                      "AND te.invoice_id IS NULL";
 
-        // Correction : Utilisation de l'instance injectée
+        
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, missionId);
@@ -47,11 +47,11 @@ public class InvoiceRepository {
         
         Connection conn = null;
         try {
-            // Correction : Utilisation de l'instance injectée
+            
             conn = databaseConfig.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. Insertion de l'en-tête de facture
+            
             String insertInvoice = "INSERT INTO invoice (id, number, mission_id, period, total_amount, status, issue_date) VALUES (?, ?, ?, ?, ?, 'ISSUED', NOW())";
             try (PreparedStatement stmt = conn.prepareStatement(insertInvoice)) {
                 stmt.setString(1, invoiceId);
@@ -62,7 +62,7 @@ public class InvoiceRepository {
                 stmt.executeUpdate();
             }
 
-            // 2. Marquer les entrées de timesheet associées pour ne pas les facturer deux fois
+            
             String flagEntries = "UPDATE timesheet_entry SET invoice_id = ? WHERE mission_id = ? AND TO_CHAR(entry_date, 'YYYY-MM') = ? " +
                                  "AND id IN (SELECT te2.id FROM timesheet_entry te2 JOIN timesheet t ON te2.consultant_id = t.consultant_id AND te2.week = t.week WHERE t.status = 'VALIDATED')";
             try (PreparedStatement stmt = conn.prepareStatement(flagEntries)) {
