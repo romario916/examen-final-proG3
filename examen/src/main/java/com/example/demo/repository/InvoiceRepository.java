@@ -1,0 +1,88 @@
+package com.example.demo.repository;
+
+import com.example.demo.config.DatabaseConfig;
+import org.springframework.stereotype.Repository;
+
+import java.sql.*;
+import java.util.UUID;
+
+@Repository
+public class InvoiceRepository {
+
+    // 1. Déclaration de l'instance de configuration
+    private final DatabaseConfig databaseConfig;
+
+    // 2. Injection par le constructeur (Zéro static)
+    public InvoiceRepository(DatabaseConfig databaseConfig) {
+        this.databaseConfig = databaseConfig;
+    }
+
+    public long calculateInvoiceAmount(String missionId, String period) {
+        // Somme des fractions de journées validées multipliées par le TJM négocié dans l'affectation
+        String sql = "SELECT SUM(te.day_fraction * a.negotiated_rate) FROM timesheet_entry te " +
+                     "JOIN timesheet t ON te.consultant_id = t.consultant_id AND te.week = t.week " +
+                     "JOIN assignment a ON te.mission_id = a.mission_id AND te.consultant_id = a.consultant_id " +
+                     "WHERE te.mission_id = ? AND TO_CHAR(te.entry_date, 'YYYY-MM') = ? AND t.status = 'VALIDATED' " +
+                     "AND te.invoice_id IS NULL";
+
+        // Correction : Utilisation de l'instance injectée
+        try (Connection conn = databaseConfig.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, missionId);
+            stmt.setString(2, period);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0L;
+    }
+
+    public String createInvoice(String missionId, String period, long totalAmount) {
+        String invoiceId = UUID.randomUUID().toString();
+        String invoiceNumber = "INV-" + period + "-" + (int)(Math.random() * 10000);
+        
+        Connection conn = null;
+        try {
+            // Correction : Utilisation de l'instance injectée
+            conn = databaseConfig.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Insertion de l'en-tête de facture
+            String insertInvoice = "INSERT INTO invoice (id, number, mission_id, period, total_amount, status, issue_date) VALUES (?, ?, ?, ?, ?, 'ISSUED', NOW())";
+            try (PreparedStatement stmt = conn.prepareStatement(insertInvoice)) {
+                stmt.setString(1, invoiceId);
+                stmt.setString(2, invoiceNumber);
+                stmt.setString(3, missionId);
+                stmt.setString(4, period);
+                stmt.setLong(5, totalAmount);
+                stmt.executeUpdate();
+            }
+
+            // 2. Marquer les entrées de timesheet associées pour ne pas les facturer deux fois
+            String flagEntries = "UPDATE timesheet_entry SET invoice_id = ? WHERE mission_id = ? AND TO_CHAR(entry_date, 'YYYY-MM') = ? " +
+                                 "AND id IN (SELECT te2.id FROM timesheet_entry te2 JOIN timesheet t ON te2.consultant_id = t.consultant_id AND te2.week = t.week WHERE t.status = 'VALIDATED')";
+            try (PreparedStatement stmt = conn.prepareStatement(flagEntries)) {
+                stmt.setString(1, invoiceId);
+                stmt.setString(2, missionId);
+                stmt.setString(3, period);
+                stmt.executeUpdate();
+            }
+
+            conn.commit();
+            return invoiceNumber;
+        } catch (SQLException e) {
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
+            }
+            throw new RuntimeException("Erreur lors de la génération de la facture", e);
+        } finally {
+            if (conn != null) {
+                try { conn.close(); } catch (SQLException e) { e.printStackTrace(); }
+            }
+        }
+    }
+}

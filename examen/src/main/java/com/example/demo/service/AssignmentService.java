@@ -1,0 +1,47 @@
+package com.example.demo.service;
+
+import com.example.demo.model.AssignmentInput;
+import com.example.demo.model.Consultant;
+import com.example.demo.repository.AssignmentRepository;
+import org.springframework.stereotype.Service;
+
+import java.sql.Date;
+
+@Service
+public class AssignmentService {
+    private final AssignmentRepository repository;
+
+    public AssignmentService(AssignmentRepository repository) {
+        this.repository = repository;
+    }
+
+    public boolean assignConsultant(String missionId, String consultantId, AssignmentInput input) {
+        Consultant consultant = repository.findConsultantById(consultantId);
+        if (consultant == null) {
+            throw new IllegalArgumentException("Consultant introuvable.");
+        }
+
+        // RÈGLE MÉTIER 1 : Le TJM négocié >= 80% du TJM par défaut
+        long minAllowedRate = (long) (consultant.getDefaultTJM() * 0.8);
+        if (input.getNegotiatedDailyRate() < minAllowedRate) {
+            throw new IllegalStateException("Violation règle métier : Le TJM négocié ne peut pas être inférieur à 80% du tarif du grade.");
+        }
+
+        // RÈGLE MÉTIER 2 : Ne pas dépasser 100% de charge sur la période (simulation simplifiée par cumul de jours prévus)
+        double currentDays = repository.getTotalPlannedDaysForPeriod(
+            consultantId, 
+            Date.valueOf(input.getStartDate()), 
+            Date.valueOf(input.getEndDate())
+        );
+        if (currentDays + input.getPlannedDays() > 30) { // Exemple basé sur une limite mensuelle arbitraire de jours ouvrés
+            throw new IllegalStateException("Violation règle métier : La charge du consultant dépasse 100% sur la période.");
+        }
+
+        // Déterminer si c'est une mise à jour (200) ou une création (201)
+        boolean alreadyExists = repository.exists(missionId, consultantId);
+        
+        repository.saveOrUpdate(missionId, consultantId, input, alreadyExists);
+        
+        return alreadyExists; // Retourne true pour UPDATE, false pour INSERT
+    }
+}
