@@ -9,23 +9,23 @@ import java.util.UUID;
 @Repository
 public class InvoiceRepository {
 
-    
     private final DatabaseConfig databaseConfig;
-
 
     public InvoiceRepository(DatabaseConfig databaseConfig) {
         this.databaseConfig = databaseConfig;
     }
 
     public long calculateInvoiceAmount(String missionId, String period) {
-    
-        String sql = "SELECT SUM(te.day_fraction * a.negotiated_rate) FROM timesheet_entry te " +
-                     "JOIN timesheet t ON te.consultant_id = t.consultant_id AND te.week = t.week " +
+        // Corrections majeures apportées ici :
+        // 1. a.negotiated_rate -> a.tjm (Colonne réelle de ta table assignment)
+        // 2. te.week = t.week -> te.week = t.semaine (Jointure sur la table timesheet)
+        // 3. t.status = 'VALIDATED' -> t.statut = 'VALIDATED'
+        String sql = "SELECT SUM(te.day_fraction * a.tjm) FROM timesheet_entry te " +
+                     "JOIN timesheet t ON te.consultant_id = t.consultant_id AND te.week = t.semaine " +
                      "JOIN assignment a ON te.mission_id = a.mission_id AND te.consultant_id = a.consultant_id " +
-                     "WHERE te.mission_id = ? AND TO_CHAR(te.entry_date, 'YYYY-MM') = ? AND t.status = 'VALIDATED' " +
+                     "WHERE te.mission_id = ? AND TO_CHAR(te.entry_date, 'YYYY-MM') = ? AND t.statut = 'VALIDATED' " +
                      "AND te.invoice_id IS NULL";
 
-        
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, missionId);
@@ -47,7 +47,6 @@ public class InvoiceRepository {
         
         Connection conn = null;
         try {
-            
             conn = databaseConfig.getConnection();
             conn.setAutoCommit(false);
 
@@ -64,7 +63,7 @@ public class InvoiceRepository {
 
             
             String flagEntries = "UPDATE timesheet_entry SET invoice_id = ? WHERE mission_id = ? AND TO_CHAR(entry_date, 'YYYY-MM') = ? " +
-                                 "AND id IN (SELECT te2.id FROM timesheet_entry te2 JOIN timesheet t ON te2.consultant_id = t.consultant_id AND te2.week = t.week WHERE t.status = 'VALIDATED')";
+                                 "AND id IN (SELECT te2.id FROM timesheet_entry te2 JOIN timesheet t ON te2.consultant_id = t.consultant_id AND te2.week = t.semaine WHERE t.statut = 'VALIDATED')";
             try (PreparedStatement stmt = conn.prepareStatement(flagEntries)) {
                 stmt.setString(1, invoiceId);
                 stmt.setString(2, missionId);

@@ -10,16 +10,15 @@ import java.util.List;
 @Repository
 public class TimesheetRepository {
 
-
     private final DatabaseConfig databaseConfig;
 
-    
     public TimesheetRepository(DatabaseConfig databaseConfig) {
         this.databaseConfig = databaseConfig;
     }
 
     public String getTimesheetStatus(String consultantId, String week) {
-        String sql = "SELECT status FROM timesheet WHERE consultant_id = ? AND week = ?";
+    
+        String sql = "SELECT statut FROM timesheet WHERE consultant_id = ? AND semaine = ?";
         
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -27,7 +26,7 @@ public class TimesheetRepository {
             stmt.setString(2, week);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getString("status");
+                    return rs.getString("statut");
                 }
             }
         } catch (SQLException e) {
@@ -39,18 +38,20 @@ public class TimesheetRepository {
     public void saveTimesheet(String consultantId, String week, String status, List<TimesheetEntry> entries) {
         Connection conn = null;
         try {
-            
             conn = databaseConfig.getConnection();
             conn.setAutoCommit(false); 
 
-        
-            String upsertTimesheet = "INSERT INTO timesheet (consultant_id, week, status, submitted_at) VALUES (?, ?, ?, NOW()) " +
-                                     "ON CONFLICT (consultant_id, week) DO UPDATE SET status = ?, submitted_at = NOW()";
+            
+            String upsertTimesheet = "INSERT INTO timesheet (id, consultant_id, semaine, statut, soumis_le) " +
+                                     "VALUES (?, ?, ?, ?, NOW()) " +
+                                     "ON CONFLICT (consultant_id, semaine) DO UPDATE SET statut = ?, soumis_le = NOW()";
             try (PreparedStatement stmt = conn.prepareStatement(upsertTimesheet)) {
-                stmt.setString(1, consultantId);
-                stmt.setString(2, week);
-                stmt.setString(3, status);
+                String timesheetId = "t-" + consultantId + "-" + week; // Génération d'un ID unique si nécessaire
+                stmt.setString(1, timesheetId);
+                stmt.setString(2, consultantId);
+                stmt.setString(3, week);
                 stmt.setString(4, status);
+                stmt.setString(5, status);
                 stmt.executeUpdate();
             }
 
@@ -62,15 +63,17 @@ public class TimesheetRepository {
                 stmt.executeUpdate();
             }
 
-            // 3. Insérer les nouvelles lignes
-            String insertEntry = "INSERT INTO timesheet_entry (consultant_id, week, entry_date, mission_id, day_fraction) VALUES (?, ?, ?, ?, ?)";
+            
+            String insertEntry = "INSERT INTO timesheet_entry (timesheet_id, consultant_id, week, entry_date, mission_id, day_fraction) VALUES (?, ?, ?, ?, ?, ?)";
             try (PreparedStatement stmt = conn.prepareStatement(insertEntry)) {
+                String timesheetId = "t-" + consultantId + "-" + week;
                 for (TimesheetEntry entry : entries) {
-                    stmt.setString(1, consultantId);
-                    stmt.setString(2, week);
-                    stmt.setDate(3, Date.valueOf(entry.getDate()));
-                    stmt.setString(4, entry.getMissionId());
-                    stmt.setDouble(5, entry.getDayFraction());
+                    stmt.setString(1, timesheetId);
+                    stmt.setString(2, consultantId);
+                    stmt.setString(3, week);
+                    stmt.setDate(4, Date.valueOf(entry.getDate()));
+                    stmt.setString(5, entry.getMissionId());
+                    stmt.setDouble(6, entry.getDayFraction());
                     stmt.addBatch();
                 }
                 stmt.executeBatch();
@@ -90,7 +93,8 @@ public class TimesheetRepository {
     }
 
     public void updateStatus(String consultantId, String week, String status, String comment) {
-        String sql = "UPDATE timesheet SET status = ?, comment = ?, validated_at = NOW() WHERE consultant_id = ? AND week = ?";
+        
+        String sql = "UPDATE timesheet SET statut = ?, comment = ?, validated_at = NOW() WHERE consultant_id = ? AND semaine = ?";
         
         try (Connection conn = databaseConfig.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {

@@ -1,7 +1,7 @@
 package com.example.demo.model;
 
 public class ValidationInput {
-    private String outcome; // VALIDATED ou REJECTED
+    private String outcome; 
     private String comment;
 
     public ValidationInput() {}

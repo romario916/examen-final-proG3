@@ -1,11 +1,17 @@
 package com.example.demo.model;
 
 import java.time.LocalDate;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class AssignmentInput {
     private int plannedDays;
     private long negotiatedDailyRate;
+
+    
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;
+
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate endDate;
 
     public AssignmentInput() {}
@@ -48,6 +54,4 @@ public class AssignmentInput {
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
     }
-
-    
 }
